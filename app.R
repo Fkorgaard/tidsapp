@@ -1,209 +1,116 @@
-install.packages("bsicons")
-
-
+# Load necessary libraries
 library(shiny)
 library(tidyverse)
 library(bslib)
 library(bsicons)
-
 library(googlesheets4)
+library(lubridate)
 
-gs4_auth(
-  cache = ".token",
-  email = "lasseoestergaard10@gmail.com"
-)
+# Google Sheets authentication
+#gs4_auth(
+ # cache = ".token",
+  #email = "lasseoestergaard10@gmail.com"
+#)
 
+SHEET_ID <- "1lWgN35lGp9s3UE4OGxu14S9sde6QTkkNXwbkDa4PasI"
 
-#Skal ikke sættes når app'en skal deployes. Det er kun til lokal testning
-
-#setwd("C:/Users/sibe/OneDrive - EaDania/Datavisualisering/2025/GitHub/03_lektion_shiny/03_lektion")
-
-day <- readRDS("C:/Users/Lasse/OneDrive/Skrivebord/dataanalyse/2semester/Datavisualisering/GitHub/Shiny/lasseshiny/day.Rds")
-
-
-#day <- readRDS("model/day.Rds") 
-
-
-
-# Define UI for application that draws a histogram
+# Define UI for application
 ui <- fluidPage(
   
-  title = "Datavisualisering",
+  title = "Gruppe 8",
   
   # Application title
-  titlePanel("EA Dania 2025"),
+  titlePanel("Tidsregistrering"),
   
-  # Sidebar with a slider input for number of bins 
+  # Sidebar layout
   sidebarLayout(
     sidebarPanel(
       
-      # Logo --------------------------------------------------------------------
-      
-      
-      div(img(height = 65, width = 80, src = "dania_logo.png"), # Her indsætter jeg et logo
+      # Logo
+      div(img(height = 65, width = 80, src = "gruppe8.jpg"), 
           style = "text-align: center;"),
       
+      # Dropdown-menuer
+      selectInput("person", "Vælg en person:",
+                  choices = c("Alle", "Lasse", "Frederik", "Sabrina", "Isabel")),
       
-      # Day selector ------------------------------------------------------------
+      selectInput("fag", "Vælg et fag:",
+                  choices = c("Fag1", "Fag2", "Fag3", "Fag4", "Fag5", "Fag6")),
       
-      numericInput("sel_day",
-                   "Select a number to return a day",
-                   min = "1",
-                   max = "7",
-                   value = "1"),
+      selectInput("projekt", "Vælg et projekt:",
+                  choices = c("1. semestersprojekt", "2. semestersprojekt")),
       
+      # Knapper
+      actionButton("start_btn", "Start"),
+      actionButton("stop_btn", "Stop")
       
-      # Slider ------------------------------------------------------------------
-      
-      
-      uiOutput("slider_ui")
-      ,
-      
-      actionButton("tilføj", "Tilføj observation"),
-      br(),
-      actionButton("indlæs", "Indlæs data")),
+    ),
     
-    # Main panel --------------------------------------------------------------
-    
-    
-    # Show a plot of the generated distribution
     mainPanel(
-      tabsetPanel(tabPanel("Day",
-                           tableOutput("tabel"),
-                           uiOutput("day")),
-                  tabPanel("Plot 1",
-                           plotOutput("plot1")),
-                  tabPanel("Plot 2",
-                           sliderInput("hej",
-                                       "Test",
-                                       min = 1,
-                                       max = 10,
-                                       step = 1,
-                                       value = 5),
-                           hr(),
-                           plotOutput("plot2")))
-      
+      textOutput("valg_resultat"),
+      textOutput("timer"),
+      textOutput("knap_status")
     )
   )
 )
 
-# Define server logic required to draw a histogram
-server <- function(input, output) {
+# Define server logic
+server <- function(input, output, session) {
   
-  # Aktiv min actionbutton
+  start_time <- reactiveVal(NULL)
+  stop_time <- reactiveVal(NULL)
+  timer_running <- reactiveVal(FALSE)
   
-  observeEvent(input$tilføj, {
-    
-    newRow <- data.frame(day = input$sel_day,
-                         year = input$bins)
-    
-    print(newRow)
-    
-    sheet_append("xxxx", newRow, sheet = 1) # Kun ID
-    
+  # Funktion til at opdatere Google Sheets
+  update_sheet <- function(person, fag, projekt, start, stop, varighed) {
+    new_row <- tibble(Person = person, Fag = fag, Projekt = projekt, Start = start, Stop = stop, Varighed = varighed)
+    sheet_append(SHEET_ID, new_row)
+  }
+  
+  # Output til at vise valgte værdier
+  output$valg_resultat <- renderText({
+    paste("Du har valgt:", input$person, ",", input$fag, "og", input$projekt)
   })
   
-  
-  df <- eventReactive(input$indlæs, {
+  # Start-knap trykkes
+  observeEvent(input$start_btn, {
+    start_time(Sys.time())  # Registrerer starttid
+    stop_time(NULL)
+    timer_running(TRUE)
     
-    read_sheet("xxxxxxx", # Fuld url
-               range = "Ark1")
-    
+    output$knap_status <- renderText("Tidsregistrering startet!")
   })
   
-  output$tabel <- renderDataTable({
+  # Stop-knap trykkes
+  observeEvent(input$stop_btn, {
+    req(start_time())  # Sørger for, at der er en starttid før stop registreres
     
-    print(df())
+    stop_time(Sys.time())  # Registrerer stoptid
+    timer_running(FALSE)
     
+    # Beregner varigheden (sikrer at vi bruger heltal)
+    elapsed_time <- as.numeric(difftime(stop_time(), start_time(), units = "secs"))
+    minutes <- as.integer(elapsed_time %/% 60)
+    seconds <- as.integer(elapsed_time %% 60)
+    elapsed_formatted <- sprintf("%d min %d sek", minutes, seconds)
+    
+    # Registrerer data i Google Sheets
+    update_sheet(input$person, input$fag, input$projekt, 
+                 format(start_time(), "%Y-%m-%d %H:%M:%S"), 
+                 format(stop_time(), "%Y-%m-%d %H:%M:%S"), 
+                 elapsed_formatted)
+    
+    output$knap_status <- renderText(paste("Tidsregistrering stoppet! Varighed:", elapsed_formatted))
   })
   
-  
-  
-  # Value box day
-  
-  output$day <- renderUI({
-    
-    day <- day()
-    
-    weekday <- day(input$sel_day)
-    
-    bslib::value_box(title = "The chosen day is:",
-                     value = weekday,
-                     showcase = bs_icon("bank2"),
-                     theme = "bg-danger")
-    
+  # Opdaterer tælleren
+  output$timer <- renderText({
+    req(timer_running())
+    invalidateLater(1000, session)  # Opdaterer hver sekund
+    elapsed <- as.numeric(difftime(Sys.time(), start_time(), units = "secs"))
+    paste("Tid gået:", elapsed, "sekunder")
   })
-  
-  
-  output$slider_ui <- renderUI({
-    
-    req(passat())
-    
-    passat <- passat()
-    
-    sliderInput("bins",
-                "Number of bins:",
-                min = min(passat$year, na.rm = TRUE),
-                max = max(passat$year, na.rm = TRUE),
-                value = 30)
-    
-  })
-  
-  
-  output$plot1 <- renderPlot({
-    
-    # generate bins based on input$bins from ui.R
-    x    <- faithful[, 2]
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
-    
-    # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = 'darkgray', border = 'white',
-         xlab = 'Waiting time to next eruption (in mins)',
-         main = 'Histogram of waiting times')
-  })
-  
-  
-  output$plot2 <- renderPlot({
-    
-    #print(passat())
-    
-    # passat <- readxl::read_excel("data/passat.xlsx")
-    # 
-    # print(passat)
-    
-    # generate bins based on input$bins from ui.R
-    x    <- faithful[, 2]
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
-    
-    # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = 'darkgray', border = 'white',
-         xlab = 'Waiting time to next eruption (in mins)',
-         main = 'Histogram of waiting times')
-  })
-  
-  
-  # Reactive ----------------------------------------------------------------
-  
-  
-  
-  passat <- reactive({
-    
-    passat <- readxl::read_excel("data/passat.xlsx") %>%
-      filter(year >= 2014)
-    
-    #rds <- readxl::read_excel("data/passat.xlsx")
-    
-    
-  })
-  
-  day <- reactive({
-    
-    day <- readRDS("model/day.Rds")
-    
-  })
-  
 }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
