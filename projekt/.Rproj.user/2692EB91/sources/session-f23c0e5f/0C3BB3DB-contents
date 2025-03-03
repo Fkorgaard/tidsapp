@@ -1,0 +1,227 @@
+pacman::p_load(gam, mgcv, gamair, tidymodels, tidyverse, caret, ISLR2, janitor,
+               readxl, sp, ggfortify, performance, olsrr, car)
+
+mcycle <- readRDS("data/mcycle.rds")
+mpg2 <- readRDS("data/mpg2.rds")
+dat <- readRDS("data/dat.rds")
+meuse <- readRDS("data/meuse.rds")
+csale <- readRDS("data/csale.rds")
+
+# mcycle <- readRDS("C:/Users/BJSO/OneDrive - EaDania/Kurser/DataCamp/GAM/mcycle.rds")
+# mpg2 <- readRDS("C:/Users/BJSO/OneDrive - EaDania/Kurser/DataCamp/GAM/mpg2.rds")
+# dat <- readRDS("C:/Users/BJSO/OneDrive - EaDania/Kurser/DataCamp/GAM/dat.rds")
+# meuse <- readRDS("C:/Users/BJSO/OneDrive - EaDania/Kurser/DataCamp/GAM/meuse.rds")
+# csale <- readRDS("C:/Users/BJSO/OneDrive - EaDania/Kurser/DataCamp/GAM/csale.rds")
+
+head(mcycle)
+plot(mcycle)
+
+lm_mod <- lm(accel ~ times, data = mcycle)
+termplot(lm_mod, partial.resid = TRUE, se = TRUE)
+
+# De fleksible smooth funktioner (s()) er opbygget af basis functions: 
+
+gam_mod <- gam(accel ~ s(times), data = mcycle)
+plot(gam_mod, residuals = TRUE, pch = 1)
+coef(gam_mod)
+
+
+gam_mod_k3 <- gam(accel ~ s(times, k = 3), data = mcycle)
+gam_mod_k20 <- gam(accel ~ s(times, k = 20), data = mcycle)
+par(mfrow = c(2, 1))
+plot(gam_mod_k3, residuals = TRUE, pch = 1)
+plot(gam_mod_k20, residuals = TRUE, pch = 1)
+par(mfrow = c(1, 1))
+
+
+gam_mod <- gam(accel ~ s(times), data = mcycle, method = "REML")
+print(gam_mod)
+summary(gam_mod)
+print(gam_mod$sp) 
+gam_mod_s1 <- gam(accel ~ s(times), data = mcycle, sp = 0.1)
+gam_mod_s2 <- gam(accel ~ s(times), data = mcycle, sp = 0.0001)
+par(mfrow = c(3, 1))
+plot(gam_mod, residuals = TRUE, pch = 1)
+plot(gam_mod_s1, residuals = TRUE, pch = 1)
+plot(gam_mod_s2, residuals = TRUE, pch = 1)
+par(mfrow = c(1, 1))
+summary(gam_mod)
+summary(gam_mod_s1)
+summary(gam_mod_s2)
+gam_mod$smooth[[1]]$bs.dim
+gam_mod_s1$smooth[[1]]$bs.dim
+gam_mod_s2$smooth[[1]]$bs.dim
+
+
+gam_mod_sk <-  gam(accel ~ s(times, k = 50), data = mcycle, sp = 0.0001) 
+plot(gam_mod_sk, residuals = TRUE, pch = 1)
+
+
+
+head(mpg2)
+str(mpg2)
+
+model <- gam(hw.mpg ~ s(weight), data = mpg2, method = "REML")
+model2 <- gam(hw.mpg ~ s(weight) + s(length), data = mpg2, method = "REML")
+plot(model, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+plot(model2, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+
+model2 <- gam(hw.mpg ~ s(weight) + length, data = mpg2, method = "REML")
+plot(model2, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+
+model2 <- gam(hw.mpg ~ s(weight) + s(length, sp = 1000), data = mpg2, method = "REML")
+plot(model2, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+
+model3 <- gam(hw.mpg ~ s(weight) + fuel, data = mpg2, method = "REML")
+plot(model3, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+
+model4 <- gam(hw.mpg ~ s(weight, by = fuel), data = mpg2, method = "REML")
+plot(model4, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+model4b <- gam(hw.mpg ~ s(weight, by = fuel) + fuel, data = mpg2, method = "REML")
+plot(model4b, pages = 1, resid = TRUE, all.terms = TRUE, cex = 1, pch = 1)
+
+
+mod_city <- gam(city.mpg ~ s(weight) + s(length) + s(price), 
+                data = mpg2, 
+                method = "REML")
+plot(mod_city, all.terms = TRUE, pages = 1)
+
+mod_city2 <- gam(city.mpg ~ s(weight) + s(length) + s(price) + fuel + drive + style, 
+                 data = mpg2, method = "REML")
+mod_city2
+summary(mod_city2)
+plot(mod_city2, all.terms = TRUE, pages = 1)
+
+mod_city3 <- gam(city.mpg ~ s(weight, by = drive) + s(length, by = drive) + s(price, by = drive) + drive,  
+                 data = mpg2, method = "REML")
+plot(mod_city3, pages = 1)
+
+
+mod_hwy <- gam(
+  hw.mpg ~ s(weight) + s(rpm) + s(price) + s(comp.ratio) + s(width) + fuel + cylinders,
+  data = mpg2, method = "REML"
+)
+summary(mod_hwy) 
+plot(mod_hwy, pages = 1)
+
+
+
+mod <- gam(accel ~ s(times), data = mcycle, method = "REML")
+plot(mod, residuals = TRUE, rug = TRUE)
+plot(mod, residuals = TRUE, rug = TRUE, pch = 1, cex = 1)
+mod <- gam(hw.mpg ~ s(weight) + s(rpm) + s(price) + comp.ratio, 
+           data = mpg2, method = "REML")
+plot(mod, select = 3)
+plot(mod, all.terms = TRUE, pages = 1)
+plot(mod, select = 1, shade = TRUE, shade.col = "lightblue")
+plot(mod, select = 1, seWithMean=TRUE, shift = coef(mod)[1])
+
+
+
+str(dat)
+mod <- gam(y ~ s(x0, k = 3) + s(x1, k = 3) + s(x2, k = 3) + s(x3, k = 3),
+           data = dat, method = "REML")
+par(mfrow = c(2, 2))
+gam.check(mod)
+par(mfrow = c(1, 1))
+mod2 <- gam(y ~ s(x0, k = 3) + s(x1, k = 3) + s(x2, k = 10) + s(x3, k = 3),
+            data = dat, method = "REML")
+par(mfrow = c(2, 2))
+gam.check(mod2)
+par(mfrow = c(1, 1))
+
+
+
+mod <- gam(hw.mpg ~ s(length) + s(width) + s(height) + s(weight), 
+           data = mpg2, method = "REML")
+concurvity(mod, full = TRUE)
+concurvity(mod, full = FALSE)
+
+
+
+head(meuse)
+str(meuse)
+
+mod2d <- gam(cadmium ~ s(x, y), data = meuse, method = "REML")
+summary(mod2d)
+coef(mod2d)
+
+mod2da <- gam(cadmium ~ s(x, y) + s(elev) + s(dist), 
+              data = meuse, method = "REML")
+summary(mod2da)
+
+
+plot(mod2da, pages = 1)
+plot(mod2da, scheme = 1, pages = 1)
+plot(mod2da, scheme = 2, page = 1)
+
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "persp", se = 2)
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "persp", se = 2, theta = 135)
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "persp", se = 2, phi = 55)
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "persp", se = 2, r = 0.9)
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "persp", se = 2, theta = 140, phi = 15, r = 0.5)
+
+
+
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "contour", too.far = 0.05, )
+points(meuse)
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "contour", too.far = 0.10)
+points(meuse)
+vis.gam(mod2d, view = c("x", "y"), 
+        plot.type = "contour", too.far = 0.25)
+points(meuse)
+
+
+
+
+model4b <- gam(hw.mpg ~ s(weight, by = fuel) + fuel, 
+               data = mpg2,
+               method = "REML")
+plot(model4b, pages = 1, all.terms = TRUE)
+
+
+model4c <- gam(hw.mpg ~ s(weight, fuel, bs = "fs") + fuel,
+               data = mpg2,
+               method = "REML")
+plot(model4c, pages = 1, all.terms = TRUE)
+plot(model4c)
+vis.gam(model4c, theta = 125, plot.type = "persp")
+
+
+mod_sep <- gam(copper ~ s(dist, by = landuse) + landuse, 
+               data = meuse, 
+               method = "REML") 
+summary(mod_sep)
+
+mod_fs <- gam(copper ~ s(dist, landuse, bs = "fs"), 
+              data = meuse, 
+              method = "REML")
+summary(mod_fs)
+
+plot(mod_sep, pages = 1)
+plot(mod_fs, pages = 1)
+
+
+vis.gam(mod_sep, view = c("dist", "landuse"), plot.type = "persp")
+vis.gam(mod_fs, view = c("dist", "landuse"), plot.type = "persp")
+
+
+
+mod <- gam(cadmium ~ s(x, y) + s(elev), data = meuse, method = "REML")
+summary(mod)
+
+tensor_mod <- gam(cadmium ~ te(x, y, elev), data = meuse, method = "REML")
+summary(tensor_mod)
+plot(tensor_mod)
+
+tensor_mod2 <- gam(cadmium ~ s(x) + s(y) + s(elev) + ti(x, y, elev), data = meuse, method = "REML")
+summary(tensor_mod2)
+plot(tensor_mod2, pages = 1)
+
