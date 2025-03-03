@@ -17,8 +17,9 @@ google_sheet_id <- "https://docs.google.com/spreadsheets/d/1lWgN35lGp9s3UE4OGxu1
 load_data_from_gsheets <- function() {
   # Autentifikation - du skal have opsat OAuth credentials
   # Dette udføres første gang du kører appen
-  # googledrive::drive_auth()
-  # googlesheets4::gs4_auth()
+  googledrive::drive_auth()
+  googlesheets4::gs4_auth()
+1
   
   tryCatch({
     # Indlæs data fra Google Sheet
@@ -57,12 +58,15 @@ ui <- dashboardPage(
   
   dashboardSidebar(
     selectInput("person", "Vælg Person:", 
-                choices = c("Alle")),  # Bliver opdateret dynamisk
+                choices = c("Alle", "Frederik", "Lasse", "Isabel", "Sabrina")),  # Bliver opdateret dynamisk
     dateRangeInput("datointerval", "Vælg Datointerval:",
                    start = Sys.Date() - 30,
                    end = Sys.Date()),
     selectInput("projekt", "Vælg Projekt:",
-                choices = c("Alle")),  # Bliver opdateret dynamisk
+                choices = c("Alle", "Projekt A", "Projekt B", "Projekt C")),  # Bliver opdateret dynamisk
+    selectInput("emne", "Vælg Emne:",
+                choices = c("Alle", "A", "B", "C")),  # Bliver opdateret dynamisk
+    
     hr(),
     h4("Tidsregistrering"),
     selectInput("reg_person", "Person:", choices = ""),  # Bliver opdateret dynamisk
