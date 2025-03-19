@@ -7,6 +7,16 @@ library(lubridate)
 library(DT)
 library(ggplot2)
 library(shinydashboard)
+library(auth0)
+
+#file.edit("~/.Renviron")
+
+options(shiny.host = "127.0.0.1", shiny.port = 8080)
+
+
+readRenviron(".Renviron")
+
+
 
 # Google Sheets authentication
 gs4_auth(
@@ -245,5 +255,6 @@ tags$script("
   });
 ")
 
-shinyApp(ui = ui, server = server)
+auth0::shinyAppAuth0(ui = ui, server = server)
+
 
